@@ -2,6 +2,7 @@ import { AdStatsDatabase, db } from '../dbs/stats.db';
 import { ActionWorker } from '../types/action.types';
 import { IStatItem, Levels } from '../types/stats.types';
 import { produce } from 'immer';
+import { aggregateReduce } from '../utils/aggregateReduce';
 
 export const BRANDS = ['Nike', 'Adidas', 'ARMADABOOTS', 'Ecco', 'Asolo', 'Lomer'];
 
@@ -26,7 +27,6 @@ class ApiWorker {
                 case ActionWorker.GET_STATS_DATA:
                     const result = await this.genStatsData(size);
                     self.postMessage({ requestId, result, action });
-                    console.log('getStatsData', requestId);
                     break;
                 case ActionWorker.CALC_STATS_DATA:
                     const resultData = this.calculateStatsData(data);
@@ -64,9 +64,11 @@ class ApiWorker {
         };
         const metrics: (keyof IStatItem['sums'])[] = ['cost', 'orders', 'returns', 'revenue', 'buyouts'];
         if (!data) return null;
+
         const articlesBySuppliers: IStatItem[] = [];
         const articlesBySuppliersBrands: IStatItem[] = [];
         const articlesBySuppliersBrandsTypes: IStatItem[] = [];
+
         const articles = produce(data, (draft) => {
             draft.map((item) => {
                 item.buyouts = item.orders.map((curr, index) => curr - item.returns[index]);
@@ -94,57 +96,15 @@ class ApiWorker {
         });
 
         for (const supplier of SUPPLIERS) {
-            const articlesBySupplier = produce(
-                articles.filter((item) => item.supplier === supplier),
-                (draft) => {
-                    return draft.reduce(
-                        (accum, curr) => ({
-                            ...accum,
-                            cost: accum.cost.map((item, index) => item + curr.cost[index]),
-                            orders: accum.orders.map((item, index) => item + curr.orders[index]),
-                            returns: accum.returns.map((item, index) => item + curr.returns[index]),
-                            revenue: accum.revenue.map((item, index) => item + curr.revenue[index]),
-                            buyouts: accum.buyouts.map((item, index) => item + curr.buyouts[index]),
-                            sums: {
-                                cost: accum.sums.cost + curr.sums.cost,
-                                orders: accum.sums.orders + curr.sums.orders,
-                                returns: accum.sums.returns + curr.sums.returns,
-                                revenue: accum.sums.revenue + curr.sums.revenue,
-                                buyouts: accum.sums.buyouts + curr.sums.buyouts,
-                            },
-                        }),
-                        { ...draft[0] },
-                    );
-                },
-            ) as IStatItem;
+            const articlesBySupplier = aggregateReduce(articles.filter((item) => item.supplier === supplier));
             articlesBySuppliers.push(articlesBySupplier);
         }
 
         for (const supplier of SUPPLIERS) {
             for (const brand of BRANDS) {
-                const articlesBySupplierBrand = produce(
+                const articlesBySupplierBrand = aggregateReduce(
                     articles.filter((item) => item.supplier === supplier && item.brand === brand),
-                    (draft) => {
-                        return draft.reduce(
-                            (accum, curr) => ({
-                                ...accum,
-                                cost: accum.cost.map((item, index) => item + curr.cost[index]),
-                                orders: accum.orders.map((item, index) => item + curr.orders[index]),
-                                returns: accum.returns.map((item, index) => item + curr.returns[index]),
-                                revenue: accum.revenue.map((item, index) => item + curr.revenue[index]),
-                                buyouts: accum.buyouts.map((item, index) => item + curr.buyouts[index]),
-                                sums: {
-                                    cost: accum.sums.cost + curr.sums.cost,
-                                    orders: accum.sums.orders + curr.sums.orders,
-                                    returns: accum.sums.returns + curr.sums.returns,
-                                    revenue: accum.sums.revenue + curr.sums.revenue,
-                                    buyouts: accum.sums.buyouts + curr.sums.buyouts,
-                                },
-                            }),
-                            { ...draft[0] },
-                        );
-                    },
-                ) as IStatItem;
+                );
                 articlesBySuppliersBrands.push(articlesBySupplierBrand);
             }
         }
@@ -152,29 +112,9 @@ class ApiWorker {
         for (const supplier of SUPPLIERS) {
             for (const brand of BRANDS) {
                 for (const typeItem of TYPES) {
-                    const articlesBySupplierBrandType = produce(
+                    const articlesBySupplierBrandType = aggregateReduce(
                         articles.filter((item) => item.supplier === supplier && item.brand === brand && item.type === typeItem),
-                        (draft) => {
-                            return draft.reduce(
-                                (accum, curr) => ({
-                                    ...accum,
-                                    cost: accum.cost.map((item, index) => item + curr.cost[index]),
-                                    orders: accum.orders.map((item, index) => item + curr.orders[index]),
-                                    returns: accum.returns.map((item, index) => item + curr.returns[index]),
-                                    revenue: accum.revenue.map((item, index) => item + curr.revenue[index]),
-                                    buyouts: accum.buyouts.map((item, index) => item + curr.buyouts[index]),
-                                    sums: {
-                                        cost: accum.sums.cost + curr.sums.cost,
-                                        orders: accum.sums.orders + curr.sums.orders,
-                                        returns: accum.sums.returns + curr.sums.returns,
-                                        revenue: accum.sums.revenue + curr.sums.revenue,
-                                        buyouts: accum.sums.buyouts + curr.sums.buyouts,
-                                    },
-                                }),
-                                { ...draft[0] },
-                            );
-                        },
-                    ) as IStatItem;
+                    );
                     articlesBySuppliersBrandsTypes.push(articlesBySupplierBrandType);
                 }
             }

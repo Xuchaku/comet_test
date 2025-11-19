@@ -1,42 +1,9 @@
 import { ColDef, ColDefField, ValueFormatterParams, ValueGetterParams } from 'ag-grid-enterprise';
 import { IStatItem, ORDERED_LEVELS } from '../../../types/stats.types';
 import { METADATA_LABELS } from '../stats.const';
-import { BRANDS, SUPPLIERS, TYPES } from '../../../api/mock';
 
-interface AggregatedData {
-    article?: IStatItem[];
-    supplier?: IStatItem[];
-    brand?: IStatItem[];
-    type?: IStatItem[];
-}
-
-const valueGetterExt =
-    <T extends IStatItem>(dataDb: AggregatedData, metric: string, field: 'sums' | 'average') =>
-    (params: ValueGetterParams<T>) => {
-        const { supplier, brand, type } = dataDb;
-
-        const keyValue = params.node?.key as string;
-        if (SUPPLIERS.includes(keyValue)) {
-            const targetSupplierRow = supplier?.find((item) => item.supplier === keyValue);
-            return targetSupplierRow?.[field]?.[metric as keyof IStatItem['sums' | 'average']] ?? 0;
-        } else if (BRANDS.includes(keyValue)) {
-            const parentKeySupplier = params.node?.parent?.key;
-            const targetBrandRow = brand?.find((item) => item.brand === keyValue && item.supplier === parentKeySupplier);
-            return targetBrandRow?.[field]?.[metric as keyof IStatItem['sums' | 'average']] ?? 0;
-        } else if (TYPES.includes(keyValue)) {
-            const parentKeySupplier = params.node?.parent?.parent?.key;
-            const parentKeyBrand = params.node?.parent?.key;
-            const targetTypeRow = type?.find(
-                (item) => item.type === keyValue && item.brand === parentKeyBrand && item.supplier === parentKeySupplier,
-            );
-            return targetTypeRow?.[field]?.[metric as keyof IStatItem['sums' | 'average']] ?? 0;
-        } else {
-            return params.data?.[field]?.[metric as keyof IStatItem['sums' | 'average']] ?? 0;
-        }
-    };
-
-export function statsGridColumnsFactory<T extends IStatItem>(metric: string, dates: string[], dataDb: AggregatedData) {
-    const metadataColumns: ColDef<T>[] = ORDERED_LEVELS.map((level, index) => ({
+export function statsGridColumnsFactory<T extends IStatItem>(metric: string, dates: string[]) {
+    const metadataColumns: ColDef<T>[] = ORDERED_LEVELS.slice(0, ORDERED_LEVELS.length - 1).map((level, index) => ({
         colId: level,
         headerName: METADATA_LABELS[level],
         field: level as ColDefField<T>,
@@ -48,7 +15,9 @@ export function statsGridColumnsFactory<T extends IStatItem>(metric: string, dat
     const sumColumn: ColDef<T> = {
         colId: 'sums',
         headerName: 'Sum',
-        valueGetter: valueGetterExt(dataDb, metric, 'sums'),
+        valueGetter: (params: ValueGetterParams<T>) => {
+            return params.data?.sums?.[metric as keyof IStatItem['sums']] ?? 0;
+        },
         valueFormatter: (params: ValueFormatterParams<T>) => {
             return params.value?.toLocaleString() ?? '';
         },
@@ -56,7 +25,9 @@ export function statsGridColumnsFactory<T extends IStatItem>(metric: string, dat
     const averageColumn: ColDef<T> = {
         colId: 'average',
         headerName: 'Average',
-        valueGetter: valueGetterExt(dataDb, metric, 'average'),
+        valueGetter: (params: ValueGetterParams<T>) => {
+            return params.data?.average?.[metric as keyof IStatItem['average']] ?? 0;
+        },
         valueFormatter: (params: ValueFormatterParams<T>) => {
             return params.value?.toLocaleString() ?? '';
         },
@@ -66,25 +37,7 @@ export function statsGridColumnsFactory<T extends IStatItem>(metric: string, dat
         headerName: date,
         colId: `${index}`,
         valueGetter: (params: ValueGetterParams<T>) => {
-            const { supplier, brand, type } = dataDb;
-            const keyValue = params.node?.key as string;
-            if (SUPPLIERS.includes(keyValue)) {
-                const targetSupplierRow = supplier?.find((item) => item.supplier === keyValue);
-                return targetSupplierRow?.[metric as 'cost' | 'orders' | 'returns' | 'revenue' | 'buyouts']?.[index] ?? 0;
-            } else if (BRANDS.includes(keyValue)) {
-                const parentKeySupplier = params.node?.parent?.key;
-                const targetBrandRow = brand?.find((item) => item.brand === keyValue && item.supplier === parentKeySupplier);
-                return targetBrandRow?.[metric as 'cost' | 'orders' | 'returns' | 'revenue' | 'buyouts']?.[index] ?? 0;
-            } else if (TYPES.includes(keyValue)) {
-                const parentKeySupplier = params.node?.parent?.parent?.key;
-                const parentKeyBrand = params.node?.parent?.key;
-                const targetTypeRow = type?.find(
-                    (item) => item.type === keyValue && item.brand === parentKeyBrand && item.supplier === parentKeySupplier,
-                );
-                return targetTypeRow?.[metric as 'cost' | 'orders' | 'returns' | 'revenue' | 'buyouts']?.[index] ?? 0;
-            } else {
-                return params.data?.[metric as 'cost' | 'orders' | 'returns' | 'revenue' | 'buyouts']?.[index] ?? 0;
-            }
+            return params.data?.[metric as 'cost' | 'orders' | 'returns' | 'revenue' | 'buyouts']?.[index] ?? 0;
         },
         valueFormatter: (params: ValueFormatterParams<T>) => {
             return params.value?.toLocaleString() ?? '';

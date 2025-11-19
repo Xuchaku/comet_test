@@ -1,5 +1,4 @@
 import Dixie, { Table } from 'dexie';
-import { v4 as uuidv4 } from 'uuid';
 import { IStatItem, Levels } from '../types/stats.types';
 
 export class AdStatsDatabase extends Dixie {
@@ -9,14 +8,6 @@ export class AdStatsDatabase extends Dixie {
     [Levels.type]!: Table<IStatItem[]>;
 
     constructor(user_uuid: string) {
-        // const user_uuidls = localStorage.getItem('user_uuid');
-        // if (!user_uuidls) {
-        //     const user_uuid = uuidv4();
-        //     localStorage.setItem('user_uuid', user_uuid);
-        //     super(user_uuid);
-        // } else {
-        //     super(user_uuidls);
-        // }
         super(user_uuid);
 
         this.version(1).stores({
@@ -45,7 +36,6 @@ export class AdStatsDatabase extends Dixie {
             this.type.orderBy('').first(),
             this.brand.orderBy('').first(),
             this.supplier.orderBy('').first(),
-            new Promise((r) => setTimeout(() => r(1), 10_000)),
         ]);
         aggregatedData[Levels.article] = dataFromDb[0] ?? [];
         aggregatedData[Levels.type] = dataFromDb[1] ?? [];
@@ -66,7 +56,6 @@ export class AdStatsDatabase extends Dixie {
         }
 
         for (const [level, items] of Object.entries(data)) {
-            console.log(level, items);
             this[level as Levels].add(items);
         }
     }
